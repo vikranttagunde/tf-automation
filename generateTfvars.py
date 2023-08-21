@@ -1,4 +1,13 @@
-# Script Developed by Monali Tagunde
+"""
+Script: generateTfvars.py
+Author: Monali Tagunde
+Date: 15-08-2023
+Description: This script accepts input in file input.xlsx having different sheets for every component.
+The script generates different tfvars for each component which can be used in terraform to deploy the
+infrastructure. Script helps automate the process, faster the infrastructure creation and also reduces
+the chances of manual errors.
+"""
+
 import csv
 import json
 import os
