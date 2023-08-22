@@ -116,6 +116,22 @@ def getTags(header, row):
     return tags
 
 
+def generateIntermediateFiles(json_file, intermediate_tfvars_file, sheet_name, resource):
+    # Write json file
+    with open(json_file, 'w') as jsonfile:
+        json.dump(resource, jsonfile, indent=4)
+
+    # Convert route table JSON data to tfvars format
+    tfvars_content = sheet_name + " = {\n"
+    for key, value in resource.items():
+        tfvars_content += f'"{key}": {json.dumps(value, indent=4, separators=(",", ": "))},\n'
+    tfvars_content += "}\n"
+
+    # Write intermediate .tfvars file
+    with open(intermediate_tfvars_file, "w") as tfvars_file:
+        tfvars_file.write(tfvars_content)
+
+
 def processRouteTable(sheet_name, sheet):
     print(f'Processing sheet {sheet_name}')
     # get intermediate and output file names
@@ -166,24 +182,12 @@ def processRouteTable(sheet_name, sheet):
         route_tables[row['route_table_name']]['freeform_tags'] = freeform_tags
         route_tables[row['route_table_name']]['defined_tags'] = defined_tags
 
-    # Write json file
-    with open(json_file, 'w') as jsonfile:
-        json.dump(route_tables, jsonfile, indent=4)
-
-    # Convert route table JSON data to tfvars format
-    tfvars_content = sheet_name + " = {\n"
-    for key, value in route_tables.items():
-        tfvars_content += f'"{key}": {json.dumps(value, indent=4, separators=(",", ": "))},\n'
-    tfvars_content += "}\n"
-
-    # Write intermediate .tfvars file
-    with open(intermediate_tfvars_file, "w") as tfvars_file:
-        tfvars_file.write(tfvars_content)
-
+    # generate intermediate and final files
+    generateIntermediateFiles(json_file, intermediate_tfvars_file, sheet_name, route_tables)
     generateFinalTfvarsFile(intermediate_tfvars_file, final_tfvars_file)
 
 
-def processVcn(sheet_name, sheet):
+def processVcns(sheet_name, sheet):
     print(f'Processing sheet {sheet_name}')
     # get intermediate and output file names
     json_file, intermediate_tfvars_file, final_tfvars_file = generateFileNames(sheet_name)
@@ -212,20 +216,8 @@ def processVcn(sheet_name, sheet):
         # # Assign rules array objects
         vcns[row['vcn_name']]['cidr_blocks'] = cidr_blocks
 
-    # Write json file
-    with open(json_file, 'w') as jsonfile:
-        json.dump(vcns, jsonfile, indent=4)
-
-    # Convert route table JSON data to tfvars format
-    tfvars_content = sheet_name + " = {\n"
-    for key, value in vcns.items():
-        tfvars_content += f'"{key}": {json.dumps(value, indent=4, separators=(",", ": "))},\n'
-    tfvars_content += "}\n"
-
-    # Write intermediate .tfvars file
-    with open(intermediate_tfvars_file, "w") as tfvars_file:
-        tfvars_file.write(tfvars_content)
-
+    # generate intermediate and final files
+    generateIntermediateFiles(json_file, intermediate_tfvars_file, sheet_name, vcns)
     generateFinalTfvarsFile(intermediate_tfvars_file, final_tfvars_file)
 
 
@@ -265,20 +257,8 @@ def processDrgAttachments(sheet_name, sheet):
         drg_attachments[row['drg_attachment_name']]['freeform_tags'] = freeform_tags
         drg_attachments[row['drg_attachment_name']]['defined_tags'] = defined_tags
 
-    # Write json file
-    with open(json_file, 'w') as jsonfile:
-        json.dump(drg_attachments, jsonfile, indent=4)
-
-    # Convert route table JSON data to tfvars format
-    tfvars_content = sheet_name + " = {\n"
-    for key, value in drg_attachments.items():
-        tfvars_content += f'"{key}": {json.dumps(value, indent=4, separators=(",", ": "))},\n'
-    tfvars_content += "}\n"
-
-    # Write intermediate .tfvars file
-    with open(intermediate_tfvars_file, "w") as tfvars_file:
-        tfvars_file.write(tfvars_content)
-
+    # generate intermediate and final files
+    generateIntermediateFiles(json_file, intermediate_tfvars_file, sheet_name, drg_attachments)
     generateFinalTfvarsFile(intermediate_tfvars_file, final_tfvars_file)
 
 
@@ -319,84 +299,8 @@ def processSecLists(sheet_name, sheet):
         seclists[row['seclist_name']]['freeform_tags'] = freeform_tags
         seclists[row['seclist_name']]['defined_tags'] = defined_tags
 
-    # Write json file
-    with open(json_file, 'w') as jsonfile:
-        json.dump(seclists, jsonfile, indent=4)
-
-    # Convert route table JSON data to tfvars format
-    tfvars_content = sheet_name + " = {\n"
-    for key, value in seclists.items():
-        tfvars_content += f'"{key}": {json.dumps(value, indent=4, separators=(",", ": "))},\n'
-    tfvars_content += "}\n"
-
-    # Write intermediate .tfvars file
-    with open(intermediate_tfvars_file, "w") as tfvars_file:
-        tfvars_file.write(tfvars_content)
-
-    generateFinalTfvarsFile(intermediate_tfvars_file, final_tfvars_file)
-
-
-def processSecLists_2(sheet_name, sheet):
-    print(f'Processing sheet {sheet_name}')
-    # get intermediate and output file names
-    json_file, intermediate_tfvars_file, final_tfvars_file = generateFileNames(sheet_name)
-    # Generate csv data from excel sheet
-    csv_data = getCsvdata(sheet)
-    # Reset the CSV data object's position
-    csv_data.seek(0)
-    # Use DictReader to read and print CSV data
-    reader = csv.DictReader(csv_data)
-    seclists = {}
-    key_value_list = ['compartment_id', 'vcn_id', 'display_name']
-    array_list = ['ingress_sec_rules', 'egress_sec_rules']
-    array_lists_object = {}
-    tags_list = ['freeform_tags', 'defined_tags']
-    tags_lists_object = {}
-    rulesObject = {}
-    tagsObject = {}
-
-    for row in reader:
-        # for header, value in row.items():
-        for index, (header, value) in enumerate(row.items()):
-            if header == 'seclist_name':
-                seclist_name = row['seclist_name']
-                seclists[row['seclist_name']] = {}
-            elif header in key_value_list:
-                seclists[row['seclist_name']][header] = row[header]
-            elif header in array_list:
-                rulesArray = getRulesArray(header, row)
-                rulesObject[row['seclist_name'][index]] =  rulesArray
-                # array_lists_object[row['seclist_name'][header]] = rulesObject[header]
-                # seclists[row['seclist_name']][header] = getRulesArray(header, row)
-            elif header in tags_list:
-                tags = getTags(header, row)
-                tagsObject[row['seclist_name'][index]] = tags
-                # tags_lists_object[row['seclist_name'][header]] = tagsObject[header]
-                # seclists[row['seclist_name']][header] = row[header]
-
-    csv_data.seek(0)
-    for row in reader:
-        # for header, value in row.items():
-        for index, (header, value) in enumerate(row.items()):
-            # Assign rules array objects
-            seclists[row['seclist_name']][header] = rulesObject[row['seclist_name'][index]]
-            seclists[row['seclist_name']][header] = tagsObject[row['seclist_name'][index]]
-
-
-    # Write json file
-    with open(json_file, 'w') as jsonfile:
-        json.dump(seclists, jsonfile, indent=4)
-
-    # Convert route table JSON data to tfvars format
-    tfvars_content = sheet_name + " = {\n"
-    for key, value in seclists.items():
-        tfvars_content += f'"{key}": {json.dumps(value, indent=4, separators=(",", ": "))},\n'
-    tfvars_content += "}\n"
-
-    # Write intermediate .tfvars file
-    with open(intermediate_tfvars_file, "w") as tfvars_file:
-        tfvars_file.write(tfvars_content)
-
+    # generate intermediate and final files
+    generateIntermediateFiles(json_file, intermediate_tfvars_file, sheet_name, seclists)
     generateFinalTfvarsFile(intermediate_tfvars_file, final_tfvars_file)
 
 
@@ -447,51 +351,125 @@ def processSubnets(sheet_name, sheet):
         subnets[row['subnet_name']]['freeform_tags'] = freeform_tags
         subnets[row['subnet_name']]['defined_tags'] = defined_tags
 
-    # Write json file
-    with open(json_file, 'w') as jsonfile:
-        json.dump(subnets, jsonfile, indent=4)
-
-    # Convert route table JSON data to tfvars format
-    tfvars_content = sheet_name + " = {\n"
-    for key, value in subnets.items():
-        tfvars_content += f'"{key}": {json.dumps(value, indent=4, separators=(",", ": "))},\n'
-    tfvars_content += "}\n"
-
-    # Write intermediate .tfvars file
-    with open(intermediate_tfvars_file, "w") as tfvars_file:
-        tfvars_file.write(tfvars_content)
-
+    # generate intermediate and final files
+    generateIntermediateFiles(json_file, intermediate_tfvars_file, sheet_name, subnets)
     generateFinalTfvarsFile(intermediate_tfvars_file, final_tfvars_file)
+
+#Function for Virtual Machine tfvars file
+def processInstances(sheet_name, sheet):
+    print(f'Processing sheet {sheet_name}')
+    # get intermediate and output file names
+    json_file, intermediate_tfvars_file, final_tfvars_file = generateFileNames(sheet_name)
+    # Generate csv data from excel sheet
+    csv_data = getCsvdata(sheet)
+    # Reset the CSV data object's position
+    csv_data.seek(0)
+    # Use DictReader to read and print CSV data
+    reader = csv.DictReader(csv_data)
+    instances = {}
+
+    for row in reader:
+        for header, value in row.items():
+            if header == 'instance_name':
+                instance_name = row['instance_name']
+                instances[row['instance_name']] = {}
+            elif header == 'availability_domain':
+                instances[row['instance_name']]['availability_domain'] = int(row['availability_domain'])
+            elif header == 'compartment_id':
+                instances[row['instance_name']]['compartment_id'] = row['compartment_id']
+            elif header == 'shape':
+                instances[row['instance_name']]['shape'] = row['shape']
+            elif header == 'display_name':
+                instances[row['instance_name']]['display_name'] = row['display_name']
+            elif header == 'boot_volume_size_in_gbs':
+                instances[row['instance_name']]['boot_volume_size_in_gbs'] = int(row['boot_volume_size_in_gbs'])
+            elif header == 'fault_domain':
+                instances[row['instance_name']]['fault_domain'] = row['fault_domain']
+            elif header == 'source_id':
+                instances[row['instance_name']]['source_id'] = row['source_id']
+            elif header == 'source_type':
+                instances[row['instance_name']]['source_type'] = row['source_type']
+            elif header == 'network_compartment_id':
+                instances[row['instance_name']]['network_compartment_id'] = row['network_compartment_id']
+            elif header == 'vcn_compartment_id':
+                instances[row['instance_name']]['vcn_compartment_id'] = row['vcn_compartment_id']
+            elif header == 'vcn_name':
+                instances[row['instance_name']]['vcn_name'] = row['vcn_name']
+            elif header == 'subnet_id':
+                instances[row['instance_name']]['subnet_id'] = row['subnet_id']
+            elif header == 'assign_public_ip':
+                if row['assign_public_ip'].lower() == "true":
+                    boolean_value = True
+                elif row['assign_public_ip'].lower().lower() == "false":
+                    boolean_value = False
+                instances[row['instance_name']]['assign_public_ip'] = boolean_value
+            elif header == 'private_ip':
+                instances[row['instance_name']]['private_ip'] = row['private_ip']
+            elif header == 'ocpus':
+                instances[row['instance_name']]['ocpus'] = row['ocpus']
+            elif header == 'memory_in_gbs':
+                instances[row['instance_name']]['memory_in_gbs'] = int(row['memory_in_gbs'])
+            elif header == 'update_is_pv_encryption_in_transit_enabled':
+                if row['update_is_pv_encryption_in_transit_enabled'].lower() == "true":
+                    boolean_value = True
+                elif row['update_is_pv_encryption_in_transit_enabled'].lower().lower() == "false":
+                    boolean_value = False
+                instances[row['instance_name']]['update_is_pv_encryption_in_transit_enabled'] = boolean_value
+            elif header == 'freeform_tags':
+                freeform_tags = getTags(header, row)
+            elif header == 'defined_tags':
+                defined_tags = getTags(header, row)
+
+        # Assign rules array objects
+        instances[row['instance_name']]['freeform_tags'] = freeform_tags
+        instances[row['instance_name']]['defined_tags'] = defined_tags
+
+        # generate intermediate and final files
+        generateIntermediateFiles(json_file, intermediate_tfvars_file, sheet_name, instances)
+        generateFinalTfvarsFile(intermediate_tfvars_file, final_tfvars_file)
+
+
+
+
 ###################################################################################################
 #####                                generarteTfvars,py script                                #####
 ###################################################################################################
 
+myTfAutomationDir = "C:/workdir/PycharmProjects/Tutorials/tf-automation"
+os.chdir(myTfAutomationDir)
 current_directory = os.getcwd()
 print(f'current_directory : {current_directory}')
 intermediate_dir = os.path.join(current_directory, 'intermediate')
 output_dir = os.path.join(current_directory, 'output')
 if not os.path.exists(intermediate_dir):
-        os.makedirs(intermediate_dir)
+    os.makedirs(intermediate_dir)
 if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    os.makedirs(output_dir)
+
+
+# Create a dictionary mapping sheet names to functions
+sheet_function_mapping = {
+    'route_tables': processRouteTable,
+    'vcns': processVcns,
+    'drg_attachments': processDrgAttachments,
+    'seclists': processSecLists,
+    'subnets': processSubnets,
+    'instances': processInstances,
+}
 
 # Open the Excel file
 file_path = 'input.xlsx'
 workbook = openpyxl.load_workbook(file_path, data_only=True)
 
-# Iterate through sheets and print table values
+# Iterate through each sheet in the workbook
 for sheet_name in workbook.sheetnames:
-    sheet = workbook[sheet_name]
-    if sheet_name == "route_tables":
-        processRouteTable(sheet_name, sheet)
-    elif sheet_name == "vcns":
-        processVcn(sheet_name, sheet)
-    elif sheet_name == "drg_attachments":
-        processDrgAttachments(sheet_name, sheet)
-    elif sheet_name == "seclists":
-        processSecLists(sheet_name, sheet)
-    elif sheet_name == "subnets":
-        processSubnets(sheet_name, sheet)
+    if sheet_name in sheet_function_mapping:
+        sheet_function = sheet_function_mapping[sheet_name]
+        sheet = workbook[sheet_name]
+        sheet_function(sheet_name, sheet)
+    else:
+        print(f"No function found for sheet: {sheet_name}")
+
 
 # Close the Excel file
 workbook.close()
